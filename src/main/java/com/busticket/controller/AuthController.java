@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -27,11 +30,15 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO dto, HttpServletRequest request) {
         User user = authService.login(dto);
 
-        // Tạo session và lưu thông tin đăng nhập của user vào server
         HttpSession session = request.getSession(true);
         session.setAttribute("currentUser", user);
 
-        return ResponseEntity.ok("Đăng nhập thành công! Vai trò của bạn là: " + user.getRole());
+        // Đóng gói dữ liệu trả về dạng JSON gồm message và role
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Đăng nhập thành công!");
+        response.put("role", user.getRole());
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/logout")

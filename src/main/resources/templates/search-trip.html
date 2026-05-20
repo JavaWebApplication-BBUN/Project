@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tìm Chuyến Xe - Bus Ticket Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .seat { width: 50px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; border: 2px solid #dee2e6; margin: 5px; transition: 0.2s; }
+        .seat.AVAILABLE { background-color: white; color: #198754; border-color: #198754; }
+        .seat.AVAILABLE:hover { background-color: #d1e7dd; }
+        .seat.SELECTED { background-color: #0d6efd; color: white; border-color: #0d6efd; }
+        /* Disable ghế đang chờ thanh toán hoặc đã mua */
+        .seat.PENDING, .seat.BOOKED { background-color: #e9ecef; color: #adb5bd; border-color: #dee2e6; cursor: not-allowed; }
+
+        .seat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; justify-items: center; }
+        .aisle { grid-column: span 4; height: 20px; } /* Lối đi giữa xe */
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-primary mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">🚌 Bus Ticket Pro</a>
+        <div>
+            <a href="/login" class="btn btn-outline-light btn-sm">Đăng nhập</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h4 class="card-title text-primary mb-4">Hành trình của bạn</h4>
+            <form id="searchForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Điểm Đi</label>
+                    <select id="fromId" class="form-select" required>
+                        <option value="">-- Chọn điểm đi --</option>
+                        <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.name}"></option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Điểm Đến</label>
+                    <select id="toId" class="form-select" required>
+                        <option value="">-- Chọn điểm đến --</option>
+                        <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.name}"></option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ngày Khởi Hành</label>
+                    <input type="date" id="date" class="form-control" required>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Tìm Chuyến</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tripList" class="row g-3">
+    </div>
+</div>
+
+<div class="modal fade" id="seatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Sơ Đồ Ghế</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="d-flex justify-content-center mb-3">
+                    <span class="badge bg-success mx-1">Còn trống</span>
+                    <span class="badge bg-primary mx-1">Đang chọn</span>
+                    <span class="badge bg-secondary mx-1">Đã đặt/Đang chờ</span>
+                </div>
+
+                <div id="seatContainer" class="seat-grid bg-white p-3 border rounded">
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div>Đang chọn: <strong id="selectedSeatLabel" class="text-primary">Chưa chọn</strong></div>
+                <button type="button" class="btn btn-success d-none" id="btnContinueBook">Tiếp Tục Đặt Vé</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let seatModal = new bootstrap.Modal(document.getElementById('seatModal'));
+    let selectedSeatId = null;
+    let selectedTripId = null;
+
+    // 1. Gửi Form tìm chuyến
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const from = document.getElementById('fromId').value;
+        const to = document.getElementById('toId').value;
+        const date = document.getElementById('date').value;
+
+        fetch(`/api/trips/search?fromId=${from}&toId=${to}&date=${date}`)
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById('tripList');
+                list.innerHTML = '';
+                if(data.length === 0) {
+                    list.innerHTML = `<div class="alert alert-warning">Không tìm thấy chuyến xe nào trong ngày này.</div>`;
+                    return;
+                }
+
+                data.forEach(trip => {
+                    list.innerHTML += `
+                        <div class="col-md-6">
+                            <div class="card border-primary h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary fw-bold">${trip.departureTime.replace('T', ' ')}</h5>
+                                    <p class="mb-1"><strong>Xe:</strong> ${trip.busPlate} (${trip.busType})</p>
+                                    <p class="mb-1 text-danger fw-bold">Giá: ${trip.price.toLocaleString()} VNĐ</p>
+                                    <p class="mb-3 text-success">Còn ${trip.availableSeats} ghế trống</p>
+                                    <button class="btn btn-outline-primary w-100" onclick="openSeatMap(${trip.tripId})">Chọn Ghế</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+    });
+
+    // 2. Mở Modal Sơ đồ ghế
+    function openSeatMap(tripId) {
+        selectedTripId = tripId;
+        selectedSeatId = null;
+        document.getElementById('selectedSeatLabel').innerText = 'Chưa chọn';
+        document.getElementById('btnContinueBook').classList.add('d-none');
+
+        fetch(`/api/trips/${tripId}/seats`)
+            .then(res => res.json())
+            .then(seats => {
+                const container = document.getElementById('seatContainer');
+                container.innerHTML = '';
+
+                // Vẽ sơ đồ ghế
+                seats.forEach((seat, index) => {
+                    // Tạo khoảng cách (lối đi) giữa xe nếu là ghế chẵn
+                    if(index > 0 && index % 4 === 0) {
+                        container.innerHTML += `<div class="aisle"></div>`;
+                    }
+
+                    const isDisable = (seat.status === 'PENDING' || seat.status === 'BOOKED');
+                    container.innerHTML += `
+                        <div class="seat ${seat.status}"
+                             ${isDisable ? '' : `onclick="selectSeat(${seat.id}, '${seat.seatNumber}', this)"`}>
+                            ${seat.seatNumber}
+                        </div>
+                    `;
+                });
+                seatModal.show();
+            });
+    }
+
+    // 3. Xử lý click chọn ghế
+    function selectSeat(id, seatNumber, element) {
+        // Reset tất cả các ghế đang chọn (Chỉ cho phép đặt 1 ghế/lần để demo)
+        document.querySelectorAll('.seat.SELECTED').forEach(el => {
+            el.classList.remove('SELECTED');
+            el.classList.add('AVAILABLE');
+        });
+
+        // Đánh dấu ghế vừa click
+        element.classList.remove('AVAILABLE');
+        element.classList.add('SELECTED');
+
+        selectedSeatId = id;
+        document.getElementById('selectedSeatLabel').innerText = seatNumber;
+        document.getElementById('btnContinueBook').classList.remove('d-none');
+    }
+
+    // 4. Chuyển hướng sang bước Đặt vé (CORE-06)
+    document.getElementById('btnContinueBook').addEventListener('click', function() {
+        alert(`Bạn đang giữ ghế ID: ${selectedSeatId} trên Chuyến ID: ${selectedTripId}. (Sẽ xử lý tiếp ở CORE-06)`);
+        // Logic sẽ chuyển sang trang /book-ticket?tripId=...&seatId=...
+    });
+</script>
+</body>
+</html>
