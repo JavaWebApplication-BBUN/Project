@@ -1,0 +1,74 @@
+//plugins {
+//    id 'java'
+//    id 'war'
+//}
+//
+//group 'com.busticket'
+//version '1.0-SNAPSHOT'
+//
+//repositories {
+//    mavenCentral()
+//}
+//
+//ext {
+//    springVersion = '6.1.4'      // Spring 6
+//    hibernateVersion = '6.4.4.Final' // Hibernate 6
+//}
+//
+//dependencies {
+//    // Spring Core & MVC
+//    implementation "org.springframework:spring-core:${springVersion}"
+//    implementation "org.springframework:spring-context:${springVersion}"
+//    implementation "org.springframework:spring-webmvc:${springVersion}"
+//    implementation "org.springframework:spring-orm:${springVersion}"
+//
+//    // Spring Data JPA (Bản 3.x đi kèm với Spring 6)
+//    implementation 'org.springframework.data:spring-data-jpa:3.2.3'
+//
+//    // Hibernate & JPA (Bản 6.x và Jakarta)
+//    implementation "org.hibernate.orm:hibernate-core:${hibernateVersion}"
+//    implementation 'jakarta.persistence:jakarta.persistence-api:3.1.0'
+//
+//    // Database Driver (MySQL)
+//    implementation 'mysql:mysql-connector-java:8.0.33'
+//
+//    // Connection Pool (HikariCP)
+//    implementation 'com.zaxxer:HikariCP:5.0.1'
+//
+//    // Servlet API (Jakarta Servlet thay vì Javax)
+//    providedCompile 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+//
+//    // JSON parsing (Jackson)
+//    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+//
+//    // BCrypt for hashing
+//    implementation 'org.mindrot:jbcrypt:0.4'
+//}
+//
+//tasks.withType(JavaCompile) {
+//    options.encoding = 'UTF-8'
+//}
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.3'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.busticket'
+version = '1.0-SNAPSHOT'
+//sourceCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'org.mindrot:jbcrypt:0.4'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
