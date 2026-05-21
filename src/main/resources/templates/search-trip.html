@@ -192,6 +192,17 @@
     const profilePhoneInput = document.getElementById('profilePhone');
     const profileEmailInput = document.getElementById('profileEmail');
 
+    function formatDateTime(isoStr) {
+        if (!isoStr) return '';
+        const dateObj = new Date(isoStr);
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const y = dateObj.getFullYear();
+        const hrs = String(dateObj.getHours()).padStart(2, '0');
+        const mins = String(dateObj.getMinutes()).padStart(2, '0');
+        return `${d}/${m}/${y} ${hrs}:${mins}`;
+    }
+
     // Check login status
     const token = localStorage.getItem('jwt_token');
     if (token && token !== 'undefined' && token !== 'null') {
@@ -291,7 +302,7 @@
                     <div class="card border-primary h-100 ${trip.canBook ? '' : 'opacity-75'}">
                         <div class="card-body d-flex flex-column justify-content-between">
                             <div>
-                                <h5 class="card-title text-primary fw-bold">${trip.departureTime.replace('T', ' ')}</h5>
+                                <h5 class="card-title text-primary fw-bold">${formatDateTime(trip.departureTime)}</h5>
                                 <p class="mb-1"><strong>Tuyến đường:</strong> ${trip.fromLocation} ➔ ${trip.toLocation}</p>
                                 <p class="mb-1"><strong>Xe:</strong> ${trip.busPlate} (${trip.busType})</p>
                                 <p class="mb-1"><strong>Tài xế:</strong> ${trip.driverName || 'Chưa phân công'}</p>
@@ -623,7 +634,7 @@
                             <div>
                                 <h6 class="text-success fw-bold mb-1">${ticket.routeStart} ➔ ${ticket.routeEnd}</h6>
                                 <p class="mb-1 text-muted small"><strong>Mã vé:</strong> <span class="text-primary fw-bold">${ticket.ticketCode}</span> | <strong>Ghế:</strong> <span class="text-danger fw-bold">${ticket.seatNumber}</span></p>
-                                <p class="mb-1 small"><strong>Khởi hành:</strong> ${ticket.departureTime.replace('T', ' ')}</p>
+                                <p class="mb-1 small"><strong>Khởi hành:</strong> ${formatDateTime(ticket.departureTime)}</p>
                                 <p class="mb-1 small"><strong>Biển số xe:</strong> ${ticket.busPlate}</p>
                                 <p class="mb-1 small"><strong>Giá vé:</strong> ${ticket.totalPrice.toLocaleString()} VNĐ</p>
                             </div>

@@ -51,6 +51,17 @@
 </div>
 
 <script>
+    function formatDateTime(isoStr) {
+        if (!isoStr) return '';
+        const dateObj = new Date(isoStr);
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const y = dateObj.getFullYear();
+        const hrs = String(dateObj.getHours()).padStart(2, '0');
+        const mins = String(dateObj.getMinutes()).padStart(2, '0');
+        return `${d}/${m}/${y} ${hrs}:${mins}`;
+    }
+
     const token = localStorage.getItem('jwt_token');
     if (token && token !== 'undefined' && token !== 'null') {
         fetch('/api/auth/me', {
@@ -176,9 +187,9 @@
                                 <div class="col-md-8 border-end border-primary">
                                     <h4 class="text-primary mb-3">${ticket.routeStart} ➔ ${ticket.routeEnd}</h4>
                                     <p class="mb-1"><strong>Khách hàng:</strong> ${ticket.customerName} - ${ticket.customerPhone}</p>
-                                    <p class="mb-1"><strong>Thời gian đi:</strong> ${ticket.departureTime.replace('T', ' ')}</p>
+                                    <p class="mb-1"><strong>Thời gian đi:</strong> ${formatDateTime(ticket.departureTime)}</p>
                                     <p class="mb-1"><strong>Xe:</strong> ${ticket.busPlate} (Tài xế: ${ticket.driverName})</p>
-                                    <p class="mb-1"><strong>Ngày đặt:</strong> ${ticket.bookingTime.replace('T', ' ')}</p>
+                                    <p class="mb-1"><strong>Ngày đặt:</strong> ${formatDateTime(ticket.bookingTime)}</p>
                                 </div>
                                 <div class="col-md-4 text-center d-flex flex-column justify-content-center">
                                     <h5 class="text-muted mb-0">MÃ VÉ</h5>

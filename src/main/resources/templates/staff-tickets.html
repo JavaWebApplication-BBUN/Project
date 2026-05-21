@@ -50,6 +50,17 @@
 </div>
 
 <script>
+    function formatDateTime(isoStr) {
+        if (!isoStr) return '';
+        const dateObj = new Date(isoStr);
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const y = dateObj.getFullYear();
+        const hrs = String(dateObj.getHours()).padStart(2, '0');
+        const mins = String(dateObj.getMinutes()).padStart(2, '0');
+        return `${d}/${m}/${y} ${hrs}:${mins}`;
+    }
+
     // Kiểm tra token
     const token = localStorage.getItem('jwt_token');
     if (!token) {
@@ -112,7 +123,7 @@
                         <td>${t.customerName}</td>
                         <td>${t.customerPhone}</td>
                         <td>${t.routeStart} - ${t.routeEnd}</td>
-                        <td>${t.departureTime ? t.departureTime.replace('T', ' ') : ''}</td>
+                        <td>${t.departureTime ? formatDateTime(t.departureTime) : ''}</td>
                         <td class="fw-bold text-danger">${t.seatNumber}</td>
                         <td>${t.totalPrice.toLocaleString()}đ</td>
                         <td>${statusBadge}</td>
