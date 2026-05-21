@@ -25,6 +25,11 @@ public class TripAPIController {
         return ResponseEntity.ok(tripService.searchTrips(fromId, toId, date));
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<List<TripSummaryDTO>> getAllTrips() {
+        return ResponseEntity.ok(tripService.getAllTrips());
+    }
+
     // Chọn ghế -> Trả về sơ đồ
     @GetMapping("/{tripId}/seats")
     public ResponseEntity<List<SeatDTO>> getSeatMap(@PathVariable Long tripId) {

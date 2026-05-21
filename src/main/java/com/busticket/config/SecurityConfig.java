@@ -30,6 +30,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/", "/login", "/register", "/search-ticket").permitAll()
                         .requestMatchers("/api/trips/**").permitAll()
+                        .requestMatchers("/api/payments/webhook").permitAll()
                         .requestMatchers("/api/tickets/search", "/api/tickets/cancel").permitAll()
                         .requestMatchers("/api/tickets/book").authenticated()
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()

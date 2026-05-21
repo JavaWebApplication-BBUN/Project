@@ -272,6 +272,55 @@
     toInput.addEventListener('change', validateLocations);
     dateInput.addEventListener('change', validateDate);
 
+    // Hàm hiển thị danh sách các chuyến xe
+    function renderTrips(data) {
+        const list = document.getElementById('tripList');
+        list.innerHTML = '';
+        if(data.length === 0) {
+            list.innerHTML = `<div class="col-12"><div class="alert alert-warning">Không tìm thấy chuyến xe nào phù hợp.</div></div>`;
+            return;
+        }
+
+        data.forEach(trip => {
+            const disabledAttr = trip.canBook ? '' : 'disabled';
+            const btnClass = trip.canBook ? 'btn-outline-primary' : 'btn-secondary';
+            const btnText = trip.canBook ? 'Chọn Ghế' : 'Ngưng nhận đặt vé (< 2h)';
+            
+            list.innerHTML += `
+                <div class="col-md-6">
+                    <div class="card border-primary h-100 ${trip.canBook ? '' : 'opacity-75'}">
+                        <div class="card-body d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary fw-bold">${trip.departureTime.replace('T', ' ')}</h5>
+                                <p class="mb-1"><strong>Tuyến đường:</strong> ${trip.fromLocation} ➔ ${trip.toLocation}</p>
+                                <p class="mb-1"><strong>Xe:</strong> ${trip.busPlate} (${trip.busType})</p>
+                                <p class="mb-1"><strong>Tài xế:</strong> ${trip.driverName || 'Chưa phân công'}</p>
+                                <p class="mb-1 text-danger fw-bold">Giá: ${trip.price.toLocaleString()} VNĐ</p>
+                                <p class="mb-3 text-success">Còn ${trip.availableSeats} ghế trống</p>
+                            </div>
+                            <button class="btn ${btnClass} w-100" ${disabledAttr} onclick="openSeatMap(${trip.tripId})">${btnText}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // Tải tất cả chuyến xe khi trang được mở
+    function loadAllTrips() {
+        fetch('/api/trips/all')
+            .then(res => res.json())
+            .then(data => {
+                renderTrips(data);
+            })
+            .catch(err => {
+                console.error("Không thể tải tất cả chuyến xe: ", err);
+            });
+    }
+
+    // Tải danh sách chuyến xe mặc định khi trang load
+    loadAllTrips();
+
     // 1. Gửi Form tìm chuyến
     document.getElementById('searchForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -290,29 +339,7 @@
         fetch(`/api/trips/search?fromId=${from}&toId=${to}&date=${date}`)
             .then(res => res.json())
             .then(data => {
-                const list = document.getElementById('tripList');
-                list.innerHTML = '';
-                if(data.length === 0) {
-                    list.innerHTML = `<div class="col-12"><div class="alert alert-warning">Không tìm thấy chuyến xe nào trong ngày này.</div></div>`;
-                    return;
-                }
-
-                data.forEach(trip => {
-                    list.innerHTML += `
-                        <div class="col-md-6">
-                            <div class="card border-primary h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title text-primary fw-bold">${trip.departureTime.replace('T', ' ')}</h5>
-                                     <p class="mb-1"><strong>Xe:</strong> ${trip.busPlate} (${trip.busType})</p>
-                                     <p class="mb-1"><strong>Tài xế:</strong> ${trip.driverName || 'Chưa phân công'}</p>
-                                     <p class="mb-1 text-danger fw-bold">Giá: ${trip.price.toLocaleString()} VNĐ</p>
-                                     <p class="mb-3 text-success">Còn ${trip.availableSeats} ghế trống</p>
-                                    <button class="btn btn-outline-primary w-100" onclick="openSeatMap(${trip.tripId})">Chọn Ghế</button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
+                renderTrips(data);
             });
     });
 
@@ -432,11 +459,20 @@
             btn.innerText = 'Tiếp Tục Đặt Vé';
             
             if(res.status === 200) {
-                let codes = res.body.map(t => t.ticketCode).join(', ');
-                alert(`Đặt vé thành công!\nMã vé của bạn là: ${codes}\nVui lòng lưu lại mã vé để tra cứu.`);
-                seatModal.hide();
-                // refresh search list to update available seats
-                document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+                const responseData = res.body.data || res.body;
+                let tickets = responseData.tickets || [];
+                let codes = tickets.map(t => t.ticketCode).join(', ');
+                let checkoutUrl = responseData.checkoutUrl;
+                
+                if (checkoutUrl) {
+                    alert(`Đặt vé thành công! Mã vé: ${codes}.\nHệ thống sẽ chuyển bạn đến trang thanh toán trực tuyến PayOS.`);
+                    window.location.href = checkoutUrl;
+                } else {
+                    alert(`Đặt vé thành công!\nMã vé của bạn là: ${codes}\nVui lòng lưu lại mã vé để tra cứu.`);
+                    seatModal.hide();
+                    // refresh search list to update available seats
+                    document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+                }
             } else {
                 alert(`Lỗi: ${res.body.message || 'Không thể đặt vé!'}`);
             }

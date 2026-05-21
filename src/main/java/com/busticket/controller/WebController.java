@@ -33,6 +33,16 @@ public class WebController {
         return "admin-buses";
     }
 
+    @GetMapping("/admin/routes")
+    public String adminRoutesPage() {
+        return "admin-routes";
+    }
+
+    @GetMapping("/admin/statistics")
+    public String adminStatisticsPage() {
+        return "admin-statistics";
+    }
+
     @GetMapping("/search-ticket")
     public String searchTicketPage() {
         return "search-ticket";

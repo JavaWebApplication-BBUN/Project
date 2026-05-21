@@ -29,6 +29,9 @@ public class Ticket {
     @Column(nullable = false)
     private String status;
 
+    @Column(name = "order_code")
+    private Long orderCode;
+
     @Column(name = "booking_time")
     private LocalDateTime bookingTime = LocalDateTime.now();
 
@@ -86,6 +89,14 @@ public class Ticket {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Long getOrderCode() {
+        return orderCode;
+    }
+
+    public void setOrderCode(Long orderCode) {
+        this.orderCode = orderCode;
     }
 
     public LocalDateTime getBookingTime() {

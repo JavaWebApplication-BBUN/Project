@@ -24,9 +24,24 @@ public class TripService {
         return trips.stream().map(t -> {
             // Đếm số ghế còn trạng thái AVAILABLE
             long availableSeats = seatRepository.countByTripIdAndStatus(t.getId(), "AVAILABLE");
+            boolean canBook = t.getDepartureTime().isAfter(java.time.LocalDateTime.now().plusHours(2));
             return new TripSummaryDTO(
-                    t.getId(), t.getBus().getPlateNumber(), t.getBus().getBusType(),
-                    t.getDriverName(), t.getDepartureTime(), t.getPrice(), availableSeats);
+                    t.getId(), t.getRoute().getFromLocation().getName(), t.getRoute().getToLocation().getName(),
+                    t.getBus().getPlateNumber(), t.getBus().getBusType(),
+                    t.getDriverName(), t.getDepartureTime(), t.getPrice(), availableSeats, canBook);
+        }).collect(Collectors.toList());
+    }
+
+    public List<TripSummaryDTO> getAllTrips() {
+        List<Trip> trips = tripRepository.findAll();
+
+        return trips.stream().map(t -> {
+            long availableSeats = seatRepository.countByTripIdAndStatus(t.getId(), "AVAILABLE");
+            boolean canBook = t.getDepartureTime().isAfter(java.time.LocalDateTime.now().plusHours(2));
+            return new TripSummaryDTO(
+                    t.getId(), t.getRoute().getFromLocation().getName(), t.getRoute().getToLocation().getName(),
+                    t.getBus().getPlateNumber(), t.getBus().getBusType(),
+                    t.getDriverName(), t.getDepartureTime(), t.getPrice(), availableSeats, canBook);
         }).collect(Collectors.toList());
     }
 

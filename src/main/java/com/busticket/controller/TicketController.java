@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
+import com.busticket.dto.BookingResponseDTO;
+
 @RestController
 @RequestMapping("/api/tickets")
 public class TicketController {
@@ -20,11 +22,11 @@ public class TicketController {
 
     @PostMapping("/book")
     public ResponseEntity<?> bookTickets(@RequestBody TicketRequestDTO request) {
-        List<TicketResponseDTO> tickets = ticketService.bookTickets(request);
+        BookingResponseDTO responseDto = ticketService.bookTickets(request);
         
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Đặt vé thành công. Vui lòng thanh toán!");
-        response.put("tickets", tickets);
+        response.put("data", responseDto);
         
         return ResponseEntity.ok(response);
     }

@@ -1,5 +1,6 @@
 package com.busticket.service;
 
+import com.busticket.dto.BookingResponseDTO;
 import com.busticket.dto.TicketRequestDTO;
 import com.busticket.dto.TicketResponseDTO;
 import com.busticket.entity.Seat;
@@ -13,6 +14,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
+import vn.payos.PayOS;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
+import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.v2.paymentRequests.PaymentLinkItem;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,13 +33,19 @@ public class TicketService {
     private TicketRepository ticketRepository;
 
     @Autowired
+    private PayOS payOS;
+
+    @Value("${PAYOS_WEBHOOK_DOMAIN}")
+    private String domain;
+
+    @Autowired
     private SeatRepository seatRepository;
 
     @Autowired
     private UserRepository userRepository;
 
     @Transactional(rollbackFor = Exception.class)
-    public List<TicketResponseDTO> bookTickets(TicketRequestDTO request) {
+    public BookingResponseDTO bookTickets(TicketRequestDTO request) {
         String custName = request.getCustomerName();
         String custPhone = request.getCustomerPhone();
 
@@ -52,6 +64,11 @@ public class TicketService {
         }
 
         List<Ticket> bookedTickets = new ArrayList<>();
+        
+        // Sinh 1 orderCode chung cho tất cả các vé trong lần đặt này
+        long orderCode = Long.parseLong(String.valueOf(System.currentTimeMillis()).substring(2, 11) + (int)(Math.random() * 1000));
+        int totalAmount = 0;
+        List<PaymentLinkItem> items = new ArrayList<>();
 
         for (Long seatId : request.getSeatIds()) {
             Seat seat = seatRepository.findById(seatId)
@@ -62,6 +79,11 @@ public class TicketService {
                 throw new RuntimeException("Ghế " + seat.getSeatNumber() + " đã được đặt hoặc đang chờ xử lý.");
             }
 
+            // Kiểm tra thời gian khởi hành (không cho đặt nếu cách giờ khởi hành <= 2 tiếng)
+            if (seat.getTrip().getDepartureTime().isBefore(LocalDateTime.now().plusHours(2))) {
+                throw new RuntimeException("Không thể đặt vé vì chuyến xe sẽ khởi hành trong vòng 2 giờ tới.");
+            }
+
             // Đổi trạng thái ghế thành PENDING
             seat.setStatus("PENDING");
             seatRepository.save(seat);
@@ -69,6 +91,7 @@ public class TicketService {
             // Tạo vé
             Ticket ticket = new Ticket();
             ticket.setTicketCode(generateTicketCode());
+            ticket.setOrderCode(orderCode);
             ticket.setSeat(seat);
             ticket.setCustomerName(custName);
             ticket.setCustomerPhone(custPhone);
@@ -77,10 +100,37 @@ public class TicketService {
             ticket.setBookingTime(LocalDateTime.now());
 
             bookedTickets.add(ticketRepository.save(ticket));
+            
+            totalAmount += ticket.getTotalPrice().intValue();
+            items.add(PaymentLinkItem.builder()
+                    .name("Vé xe tuyến " + seat.getTrip().getRoute().getFromLocation().getName() + " - " + seat.getTrip().getRoute().getToLocation().getName() + " Ghế " + seat.getSeatNumber())
+                    .quantity(1)
+                    .price(ticket.getTotalPrice().longValue())
+                    .build());
         }
 
-        // Chuyển sang DTO trả về (không fetch toàn bộ details phức tạp lúc tạo để tối ưu hiệu năng ghi)
-        return bookedTickets.stream().map(this::mapToSimpleResponse).collect(Collectors.toList());
+        // Chuyển sang DTO trả về
+        List<TicketResponseDTO> ticketResponseDTOs = bookedTickets.stream().map(this::mapToSimpleResponse).collect(Collectors.toList());
+        
+        String checkoutUrl = "";
+        try {
+            CreatePaymentLinkRequest paymentData = CreatePaymentLinkRequest.builder()
+                    .orderCode(orderCode)
+                    .amount((long) totalAmount)
+                    .description("Thanh toan ve xe")
+                    .returnUrl(domain + "/success.html")
+                    .cancelUrl(domain + "/cancel.html")
+                    .items(items)
+                    .build();
+
+            CreatePaymentLinkResponse data = payOS.paymentRequests().create(paymentData);
+            checkoutUrl = data.getCheckoutUrl();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Lỗi khi tạo link thanh toán PayOS: " + e.getMessage());
+        }
+
+        return new BookingResponseDTO(ticketResponseDTOs, checkoutUrl);
     }
 
     public List<TicketResponseDTO> searchTicket(String ticketCode, String customerPhone) {
@@ -121,6 +171,29 @@ public class TicketService {
         
         ticket.setStatus("PAID");
         ticketRepository.save(ticket);
+        
+        Seat seat = ticket.getSeat();
+        if (seat != null) {
+            seat.setStatus("BOOKED");
+            seatRepository.save(seat);
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void completePayment(Long orderCode) {
+        List<Ticket> tickets = ticketRepository.findByOrderCode(orderCode);
+        for (Ticket ticket : tickets) {
+            if ("PENDING".equals(ticket.getStatus())) {
+                ticket.setStatus("PAID");
+                ticketRepository.save(ticket);
+                
+                Seat seat = ticket.getSeat();
+                if (seat != null) {
+                    seat.setStatus("BOOKED");
+                    seatRepository.save(seat);
+                }
+            }
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
