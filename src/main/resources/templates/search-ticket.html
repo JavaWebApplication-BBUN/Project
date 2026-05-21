@@ -29,14 +29,16 @@
     <div class="card shadow-sm mb-4 mx-auto" style="max-width: 600px;">
         <div class="card-body">
             <h4 class="card-title text-primary text-center mb-4">Tra Cứu Vé Điện Tử</h4>
-            <form id="searchTicketForm">
+            <form id="searchTicketForm" novalidate>
                 <div class="mb-3">
                     <label class="form-label">Mã Vé</label>
                     <input type="text" id="ticketCode" class="form-control" placeholder="Ví dụ: T3DCD32C" required>
+                    <div class="invalid-feedback">Mã vé không hợp lệ (phải bắt đầu bằng chữ T và gồm 8 ký tự).</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Số Điện Thoại Đặt Vé</label>
                     <input type="text" id="customerPhone" class="form-control" placeholder="Nhập số điện thoại" required>
+                    <div class="invalid-feedback">Số điện thoại không hợp lệ (gồm 10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09).</div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100">Tra Cứu</button>
             </form>
@@ -83,18 +85,63 @@
         window.location.reload();
     }
 
+    const ticketCodeInput = document.getElementById('ticketCode');
+    const customerPhoneInput = document.getElementById('customerPhone');
+
+    function validateTicketCode(code) {
+        return /^T[A-Z0-9]{7}$/.test(code.toUpperCase());
+    }
+    function validatePhone(phone) {
+        return /^(0[35789])[0-9]{8}$/.test(phone);
+    }
+
+    [
+        { el: ticketCodeInput, valFn: validateTicketCode },
+        { el: customerPhoneInput, valFn: validatePhone }
+    ].forEach(item => {
+        item.el.addEventListener('input', () => {
+            if (item.valFn(item.el.value.trim())) {
+                item.el.classList.remove('is-invalid');
+                item.el.classList.add('is-valid');
+            } else {
+                item.el.classList.remove('is-valid');
+                item.el.classList.add('is-invalid');
+            }
+        });
+    });
+
     document.getElementById('searchTicketForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const ticketCode = document.getElementById('ticketCode').value.trim();
-        const customerPhone = document.getElementById('customerPhone').value.trim();
+        const ticketCode = ticketCodeInput.value.trim();
+        const customerPhone = customerPhoneInput.value.trim();
+
+        let isValid = true;
+        if (!validateTicketCode(ticketCode)) {
+            ticketCodeInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            ticketCodeInput.classList.remove('is-invalid');
+            ticketCodeInput.classList.add('is-valid');
+        }
+
+        if (!validatePhone(customerPhone)) {
+            customerPhoneInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            customerPhoneInput.classList.remove('is-invalid');
+            customerPhoneInput.classList.add('is-valid');
+        }
+
+        if (!isValid) return;
+
         const container = document.getElementById('resultContainer');
         const btn = document.querySelector('button[type="submit"]');
         
         btn.disabled = true;
         btn.innerText = 'Đang tìm kiếm...';
         
-        fetch(`/api/tickets/search?ticketCode=${ticketCode}&customerPhone=${customerPhone}`)
+        fetch(`/api/tickets/search?ticketCode=${ticketCode.toUpperCase()}&customerPhone=${customerPhone}`)
             .then(res => res.json().then(data => ({status: res.status, body: data})))
             .then(res => {
                 btn.disabled = false;

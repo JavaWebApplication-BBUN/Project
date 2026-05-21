@@ -73,11 +73,12 @@
             </div>
             <div class="modal-body">
                 <div id="modalAlert" class="alert alert-danger d-none" role="alert"></div>
-                <form id="busForm">
+                <form id="busForm" novalidate>
                     <input type="hidden" id="busId">
                     <div class="mb-3">
                         <label class="form-label">Biển số xe</label>
                         <input type="text" class="form-control" id="plateNumber" placeholder="VD: 29B-123.45" required>
+                        <div class="invalid-feedback">Biển số xe không hợp lệ (Ví dụ: 29B-123.45 hoặc 51C-7777).</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Loại xe</label>
@@ -89,7 +90,8 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tổng số ghế</label>
-                        <input type="number" class="form-control" id="totalSeats" min="1" required>
+                        <input type="number" class="form-control" id="totalSeats" min="1" max="100" required>
+                        <div class="invalid-feedback">Tổng số ghế phải là số nguyên dương từ 1 đến 100.</div>
                     </div>
                     <div class="modal-footer px-0 pb-0">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -177,17 +179,47 @@
             .catch(err => showAlert('danger', 'Không thể kết nối API danh sách xe!'));
     }
 
+    const plateInput = document.getElementById('plateNumber');
+    const seatsInput = document.getElementById('totalSeats');
+
+    function validatePlate(plate) {
+        return /^[0-9]{2}[A-Z]-[0-9]{3,5}(\.[0-9]{2})?$/i.test(plate.trim());
+    }
+    function validateSeats(seats) {
+        const s = parseInt(seats);
+        return !isNaN(s) && s >= 1 && s <= 100;
+    }
+
+    [
+        { el: plateInput, valFn: validatePlate },
+        { el: seatsInput, valFn: validateSeats }
+    ].forEach(item => {
+        item.el.addEventListener('input', () => {
+            if (item.valFn(item.el.value)) {
+                item.el.classList.remove('is-invalid');
+                item.el.classList.add('is-valid');
+            } else {
+                item.el.classList.remove('is-valid');
+                item.el.classList.add('is-invalid');
+            }
+        });
+    });
+
     function openAddModal() {
         document.getElementById('modalTitle').textContent = 'Thêm Xe Mới';
         document.getElementById('busForm').reset();
         document.getElementById('busId').value = '';
         document.getElementById('modalAlert').classList.add('d-none');
+        plateInput.classList.remove('is-valid', 'is-invalid');
+        seatsInput.classList.remove('is-valid', 'is-invalid');
         busModal.show();
     }
 
     function openEditModal(id) {
         document.getElementById('modalTitle').textContent = 'Cập Nhật Thông Tin Xe';
         document.getElementById('modalAlert').classList.add('d-none');
+        plateInput.classList.remove('is-valid', 'is-invalid');
+        seatsInput.classList.remove('is-valid', 'is-invalid');
 
         fetch(`${API_URL}/${id}`, {
             headers: authHeaders()
@@ -207,10 +239,32 @@
         e.preventDefault();
 
         const id = document.getElementById('busId').value;
+        const plate = plateInput.value.trim();
+        const seats = seatsInput.value;
+
+        let isValid = true;
+        if (!validatePlate(plate)) {
+            plateInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            plateInput.classList.remove('is-invalid');
+            plateInput.classList.add('is-valid');
+        }
+
+        if (!validateSeats(seats)) {
+            seatsInput.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            seatsInput.classList.remove('is-invalid');
+            seatsInput.classList.add('is-valid');
+        }
+
+        if (!isValid) return;
+
         const data = {
-            plateNumber: document.getElementById('plateNumber').value,
+            plateNumber: plate,
             busType: document.getElementById('busType').value,
-            totalSeats: parseInt(document.getElementById('totalSeats').value)
+            totalSeats: parseInt(seats)
         };
 
         // Nếu id có giá trị -> Chạy PUT (Sửa), ngược lại chạy POST (Thêm)

@@ -19,14 +19,16 @@
 
             <div id="alertBox" class="alert d-none" role="alert"></div>
 
-            <form id="loginForm">
+            <form id="loginForm" novalidate>
                 <div class="mb-3">
                     <label class="form-label">Tên đăng nhập</label>
                     <input type="text" class="form-control" id="username" required>
+                    <div class="invalid-feedback">Vui lòng nhập tên đăng nhập.</div>
                 </div>
                 <div class="mb-4">
                     <label class="form-label">Mật khẩu</label>
                     <input type="password" class="form-control" id="password" required>
+                    <div class="invalid-feedback">Vui lòng nhập mật khẩu.</div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 mb-3">Đăng Nhập</button>
                 <div class="text-center">
@@ -38,12 +40,42 @@
 </div>
 
 <script>
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+
+    [usernameInput, passwordInput].forEach(input => {
+        input.addEventListener('input', () => {
+            if (input.value.trim() !== "") {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+            }
+        });
+    });
+
     document.getElementById('loginForm').addEventListener('submit', async function (e) {
         e.preventDefault();
 
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const errorDiv = document.getElementById('loginError');
+        let isValid = true;
+        [usernameInput, passwordInput].forEach(input => {
+            if (input.value.trim() === "") {
+                input.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+            }
+        });
+
+        if (!isValid) {
+            return;
+        }
+
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+        const errorDiv = document.getElementById('alertBox');
 
         try {
             const response = await fetch('/api/auth/login', {
@@ -57,8 +89,9 @@
             const data = await response.json();
 
             if (response.ok) {
-                // 1. Lưu token vào localStorage
-                localStorage.setItem('jwtToken', data.token);
+                // 1. Lưu token và vai trò vào localStorage (đồng bộ với các trang khác)
+                localStorage.setItem('jwt_token', data.token);
+                localStorage.setItem('user_role', data.role);
 
                 // 2. Kiểm tra vai trò và chuyển hướng
                 if (data.role === 'ADMIN') {
@@ -71,13 +104,15 @@
                 }
             } else {
                 // Hiển thị lỗi từ server
+                errorDiv.classList.remove('d-none');
+                errorDiv.classList.add('alert-danger');
                 errorDiv.textContent = data.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
-                errorDiv.style.display = 'block';
             }
         } catch (error) {
             console.error('Lỗi khi đăng nhập:', error);
             errorDiv.textContent = 'Đã xảy ra lỗi kết nối. Vui lòng thử lại.';
-            errorDiv.style.display = 'block';
+            errorDiv.classList.remove('d-none');
+            errorDiv.classList.add('alert-danger');
         }
     });
 </script>

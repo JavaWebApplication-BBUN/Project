@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tìm Chuyến Xe - Bus Ticket Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .seat { width: 50px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; border: 2px solid #dee2e6; margin: 5px; transition: 0.2s; }
         .seat.AVAILABLE { background-color: white; color: #198754; border-color: #198754; }
@@ -15,6 +16,14 @@
 
         .seat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; justify-items: center; }
         .aisle { grid-column: span 4; height: 20px; } /* Lối đi giữa xe */
+
+        .my-ticket-card {
+            border: 2px dashed #198754;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -33,13 +42,14 @@
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <h4 class="card-title text-primary mb-4">Hành trình của bạn</h4>
-            <form id="searchForm" class="row g-3">
+            <form id="searchForm" class="row g-3" novalidate>
                 <div class="col-md-3">
                     <label class="form-label">Điểm Đi</label>
                     <select id="fromId" class="form-select" required>
                         <option value="">-- Chọn điểm đi --</option>
                         <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.name}"></option>
                     </select>
+                    <div class="invalid-feedback">Điểm đi và điểm đến không được trùng nhau!</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Điểm Đến</label>
@@ -47,10 +57,12 @@
                         <option value="">-- Chọn điểm đến --</option>
                         <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.name}"></option>
                     </select>
+                    <div class="invalid-feedback">Điểm đi và điểm đến không được trùng nhau!</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Ngày Khởi Hành</label>
                     <input type="date" id="date" class="form-control" required>
+                    <div class="invalid-feedback">Ngày khởi hành không được ở trong quá khứ.</div>
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">Tìm Chuyến</button>
@@ -63,6 +75,7 @@
     </div>
 </div>
 
+<!-- Modal Sơ đồ ghế -->
 <div class="modal fade" id="seatModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -105,12 +118,79 @@
     </div>
 </div>
 
+<!-- Modal Hồ Sơ Cá Nhân -->
+<div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-primary"><i class="fa fa-user me-2"></i>Thông Tin Cá Nhân</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="profileAlert" class="alert d-none" role="alert"></div>
+                <form id="profileForm" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Họ và Tên</label>
+                        <input type="text" class="form-control" id="profileFullName" required>
+                        <div class="invalid-feedback">Họ và tên không được để trống và phải có ít nhất 2 ký tự.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số điện thoại</label>
+                        <input type="tel" class="form-control" id="profilePhone" required>
+                        <div class="invalid-feedback">Số điện thoại không hợp lệ (gồm 10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="profileEmail">
+                        <div class="invalid-feedback">Email không đúng định dạng.</div>
+                    </div>
+                    <div class="modal-footer px-0 pb-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Vé Của Tôi -->
+<div class="modal fade" id="myTicketsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-success"><i class="fa fa-ticket-alt me-2"></i>Vé Đã Đặt Của Tôi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ticketsListContainer" class="row g-3" style="max-height: 500px; overflow-y: auto;">
+                    <!-- Sẽ chèn vé động ở đây -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let seatModal = new bootstrap.Modal(document.getElementById('seatModal'));
+    let profileModal = new bootstrap.Modal(document.getElementById('profileModal'));
+    let myTicketsModal = new bootstrap.Modal(document.getElementById('myTicketsModal'));
+    
     let selectedSeats = [];
     let selectedTripId = null;
     let currentUser = null;
+
+    const fromInput = document.getElementById('fromId');
+    const toInput = document.getElementById('toId');
+    const dateInput = document.getElementById('date');
+
+    const profileFullNameInput = document.getElementById('profileFullName');
+    const profilePhoneInput = document.getElementById('profilePhone');
+    const profileEmailInput = document.getElementById('profileEmail');
 
     // Check login status
     const token = localStorage.getItem('jwt_token');
@@ -132,9 +212,18 @@
                 currentUser = user;
                 const navRight = document.getElementById('navRight');
                 navRight.innerHTML = `
-                    <a href="/search-ticket" class="btn btn-outline-light btn-sm me-2">Tra Cứu Vé</a>
-                    <span class="text-white me-3">Xin chào, ${user.fullName}</span>
-                    <button class="btn btn-outline-light btn-sm" onclick="logout()">Đăng xuất</button>
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-outline-light dropdown-toggle btn-sm me-2" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fa fa-user me-1"></i> Xin chào, ${user.fullName}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="#" onclick="openProfileModal()"><i class="fa fa-user-edit me-2 text-primary"></i> Thông tin cá nhân</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="openMyTicketsModal()"><i class="fa fa-receipt me-2 text-success"></i> Vé của tôi</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="logout()"><i class="fa fa-sign-out-alt me-2"></i> Đăng xuất</a></li>
+                        </ul>
+                    </div>
+                    <a href="/search-ticket" class="btn btn-outline-light btn-sm">Tra Cứu Vé</a>
                 `;
             }
         });
@@ -149,12 +238,54 @@
         window.location.reload();
     }
 
+    // Input events validation for Search Trip
+    function validateLocations() {
+        if (fromInput.value && toInput.value && fromInput.value === toInput.value) {
+            fromInput.classList.add('is-invalid');
+            toInput.classList.add('is-invalid');
+            return false;
+        } else {
+            fromInput.classList.remove('is-invalid');
+            toInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+
+    function validateDate() {
+        if (!dateInput.value) return false;
+        const selectedDate = new Date(dateInput.value);
+        selectedDate.setHours(0,0,0,0);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        if (selectedDate < today) {
+            dateInput.classList.add('is-invalid');
+            return false;
+        } else {
+            dateInput.classList.remove('is-invalid');
+            dateInput.classList.add('is-valid');
+            return true;
+        }
+    }
+
+    fromInput.addEventListener('change', validateLocations);
+    toInput.addEventListener('change', validateLocations);
+    dateInput.addEventListener('change', validateDate);
+
     // 1. Gửi Form tìm chuyến
     document.getElementById('searchForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const from = document.getElementById('fromId').value;
-        const to = document.getElementById('toId').value;
-        const date = document.getElementById('date').value;
+        
+        const locOk = validateLocations();
+        const dateOk = validateDate();
+
+        if (!locOk || !dateOk) {
+            return;
+        }
+
+        const from = fromInput.value;
+        const to = toInput.value;
+        const date = dateInput.value;
 
         fetch(`/api/trips/search?fromId=${from}&toId=${to}&date=${date}`)
             .then(res => res.json())
@@ -162,7 +293,7 @@
                 const list = document.getElementById('tripList');
                 list.innerHTML = '';
                 if(data.length === 0) {
-                    list.innerHTML = `<div class="alert alert-warning">Không tìm thấy chuyến xe nào trong ngày này.</div>`;
+                    list.innerHTML = `<div class="col-12"><div class="alert alert-warning">Không tìm thấy chuyến xe nào trong ngày này.</div></div>`;
                     return;
                 }
 
@@ -262,7 +393,7 @@
         }
     }
 
-    // 4. Chuyển hướng sang bước Đặt vé (CORE-06)
+    // 4. Đặt vé (CORE-06)
     document.getElementById('btnContinueBook').addEventListener('click', function() {
         const name = document.getElementById('custName').value.trim();
         const phone = document.getElementById('custPhone').value.trim();
@@ -286,7 +417,6 @@
         const headers = {
             'Content-Type': 'application/json'
         };
-        const token = localStorage.getItem('jwt_token');
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
@@ -302,13 +432,13 @@
             btn.innerText = 'Tiếp Tục Đặt Vé';
             
             if(res.status === 200) {
-                let codes = res.body.tickets.map(t => t.ticketCode).join(', ');
+                let codes = res.body.map(t => t.ticketCode).join(', ');
                 alert(`Đặt vé thành công!\nMã vé của bạn là: ${codes}\nVui lòng lưu lại mã vé để tra cứu.`);
                 seatModal.hide();
                 // refresh search list to update available seats
                 document.getElementById('searchForm').dispatchEvent(new Event('submit'));
             } else {
-                alert(`Lỗi: ${res.body.message}`);
+                alert(`Lỗi: ${res.body.message || 'Không thể đặt vé!'}`);
             }
         })
         .catch(err => {
@@ -317,6 +447,190 @@
             alert('Có lỗi xảy ra khi đặt vé!');
         });
     });
+
+    // --- Xử lý Thông Tin Cá Nhân (Profile) ---
+    function openProfileModal() {
+        document.getElementById('profileAlert').classList.add('d-none');
+        [profileFullNameInput, profilePhoneInput, profileEmailInput].forEach(el => el.classList.remove('is-valid', 'is-invalid'));
+        
+        fetch('/api/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            profileFullNameInput.value = data.fullName || '';
+            profilePhoneInput.value = data.phoneNumber || '';
+            profileEmailInput.value = data.email || '';
+            profileModal.show();
+        })
+        .catch(err => {
+            alert('Không thể tải thông tin hồ sơ!');
+        });
+    }
+
+    const valProfileName = (val) => val.trim().length >= 2;
+    const valProfilePhone = (val) => /^(0[35789])[0-9]{8}$/.test(val.trim());
+    const valProfileEmail = (val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+
+    const profileValidations = [
+        { el: profileFullNameInput, valFn: valProfileName },
+        { el: profilePhoneInput, valFn: valProfilePhone },
+        { el: profileEmailInput, valFn: valProfileEmail }
+    ];
+
+    profileValidations.forEach(item => {
+        item.el.addEventListener('input', () => {
+            if (item.valFn(item.el.value)) {
+                item.el.classList.remove('is-invalid');
+                item.el.classList.add('is-valid');
+            } else {
+                item.el.classList.remove('is-valid');
+                item.el.classList.add('is-invalid');
+            }
+        });
+    });
+
+    document.getElementById('profileForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let isValid = true;
+        profileValidations.forEach(item => {
+            if (!item.valFn(item.el.value)) {
+                item.el.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                item.el.classList.remove('is-invalid');
+                item.el.classList.add('is-valid');
+            }
+        });
+
+        if (!isValid) return;
+
+        const payload = {
+            fullName: profileFullNameInput.value.trim(),
+            phoneNumber: profilePhoneInput.value.trim(),
+            email: profileEmailInput.value.trim()
+        };
+
+        const alertBox = document.getElementById('profileAlert');
+
+        fetch('/api/profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            alertBox.className = 'alert alert-success';
+            alertBox.textContent = 'Cập nhật thông tin cá nhân thành công!';
+            alertBox.classList.remove('d-none');
+            
+            // Cập nhật local state
+            currentUser.fullName = data.fullName;
+            currentUser.phone = data.phoneNumber;
+            
+            // Cập nhật Navbar header
+            const userDropdownBtn = document.getElementById('userDropdown');
+            if (userDropdownBtn) {
+                userDropdownBtn.innerHTML = `<i class="fa fa-user me-1"></i> Xin chào, ${data.fullName}`;
+            }
+
+            setTimeout(() => {
+                profileModal.hide();
+            }, 1000);
+        })
+        .catch(err => {
+            alertBox.className = 'alert alert-danger';
+            alertBox.textContent = 'Không thể lưu thông tin hồ sơ!';
+            alertBox.classList.remove('d-none');
+        });
+    });
+
+    // --- Xử lý Vé Của Tôi ---
+    function openMyTicketsModal() {
+        const container = document.getElementById('ticketsListContainer');
+        container.innerHTML = '<div class="text-center p-4 col-12"><div class="spinner-border text-success" role="status"></div><p class="mt-2 text-muted">Đang tải danh sách vé...</p></div>';
+        
+        myTicketsModal.show();
+        
+        fetch('/api/tickets/my-tickets', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(tickets => {
+            container.innerHTML = '';
+            if (tickets.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center p-4 text-muted">Bạn chưa đặt vé nào trong hệ thống.</div>';
+                return;
+            }
+
+            tickets.forEach(ticket => {
+                let statusBadge = '';
+                let cancelBtn = '';
+                
+                if (ticket.status === 'PENDING') {
+                    statusBadge = '<span class="badge bg-warning text-dark">Chờ thanh toán</span>';
+                    cancelBtn = `<button class="btn btn-outline-danger btn-sm mt-2 w-100" onclick="cancelMyTicket('${ticket.ticketCode}', '${ticket.customerPhone}')"><i class="fa fa-trash-alt me-1"></i>Hủy vé</button>`;
+                } else if (ticket.status === 'PAID') {
+                    statusBadge = '<span class="badge bg-success">Đã thanh toán</span>';
+                    cancelBtn = `<button class="btn btn-outline-danger btn-sm mt-2 w-100" onclick="cancelMyTicket('${ticket.ticketCode}', '${ticket.customerPhone}')"><i class="fa fa-trash-alt me-1"></i>Hủy vé</button>`;
+                } else if (ticket.status === 'CANCELLED') {
+                    statusBadge = '<span class="badge bg-secondary">Đã hủy</span>';
+                }
+                
+                container.innerHTML += `
+                    <div class="col-md-6">
+                        <div class="my-ticket-card shadow-sm h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h6 class="text-success fw-bold mb-1">${ticket.routeStart} ➔ ${ticket.routeEnd}</h6>
+                                <p class="mb-1 text-muted small"><strong>Mã vé:</strong> <span class="text-primary fw-bold">${ticket.ticketCode}</span> | <strong>Ghế:</strong> <span class="text-danger fw-bold">${ticket.seatNumber}</span></p>
+                                <p class="mb-1 small"><strong>Khởi hành:</strong> ${ticket.departureTime.replace('T', ' ')}</p>
+                                <p class="mb-1 small"><strong>Biển số xe:</strong> ${ticket.busPlate}</p>
+                                <p class="mb-1 small"><strong>Giá vé:</strong> ${ticket.totalPrice.toLocaleString()} VNĐ</p>
+                            </div>
+                            <div class="mt-2 border-top pt-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="small text-muted">Trạng thái:</span>
+                                    <span>${statusBadge}</span>
+                                </div>
+                                ${cancelBtn}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        })
+        .catch(err => {
+            container.innerHTML = '<div class="col-12 text-center p-4 text-danger">Có lỗi xảy ra khi lấy danh sách vé!</div>';
+        });
+    }
+
+    function cancelMyTicket(ticketCode, customerPhone) {
+        if (!confirm('Bạn có chắc chắn muốn hủy vé này không? Lưu ý: Vé chỉ có thể hủy trước giờ xe chạy ít nhất 12 tiếng.')) return;
+        
+        fetch(`/api/tickets/cancel?ticketCode=${ticketCode}&customerPhone=${customerPhone}`, {
+            method: 'POST'
+        })
+        .then(res => res.json().then(data => ({status: res.status, body: data})))
+        .then(res => {
+            if (res.status === 200) {
+                alert(res.body.message);
+                openMyTicketsModal();
+                if (selectedTripId) {
+                    openSeatMap(selectedTripId);
+                }
+                document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+            } else {
+                alert('Lỗi: ' + (res.body.message || 'Không thể hủy vé.'));
+            }
+        })
+        .catch(err => {
+            alert('Đã xảy ra lỗi kết nối với máy chủ.');
+        });
+    }
 </script>
 </body>
 </html>
