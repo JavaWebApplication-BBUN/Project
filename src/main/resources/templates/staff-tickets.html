@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Vé - Staff Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#">👨‍💼 Staff Dashboard - Quản Lý Vé</a>
+        <div>
+            <span class="text-white me-3" id="staffName">Xin chào, Staff</span>
+            <button class="btn btn-outline-light btn-sm" onclick="logout()">Đăng xuất</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 text-primary fw-bold">Danh sách tất cả vé</h5>
+            <button class="btn btn-primary btn-sm" onclick="loadTickets()">🔄 Làm mới</button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã Vé</th>
+                            <th>Khách Hàng</th>
+                            <th>SĐT</th>
+                            <th>Chuyến (Đi - Đến)</th>
+                            <th>Ngày đi</th>
+                            <th>Số Ghế</th>
+                            <th>Giá Vé</th>
+                            <th>Trạng Thái</th>
+                            <th class="text-end">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketTableBody">
+                        <tr><td colspan="9" class="text-center py-4">Đang tải dữ liệu...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Kiểm tra token
+    const token = localStorage.getItem('jwt_token');
+    if (!token) {
+        alert("Vui lòng đăng nhập với tài khoản Staff!");
+        window.location.href = '/login';
+    }
+
+    function logout() {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_role');
+        window.location.href = '/login';
+    }
+
+    function loadTickets() {
+        fetch('/api/tickets/staff/all', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(res => {
+            if (res.status === 403 || res.status === 401) {
+                alert("Bạn không có quyền truy cập trang này!");
+                window.location.href = '/login';
+                return null;
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (!data) return;
+            const tbody = document.getElementById('ticketTableBody');
+            tbody.innerHTML = '';
+            
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Không có vé nào trong hệ thống.</td></tr>';
+                return;
+            }
+            
+            data.forEach(t => {
+                let statusBadge = '';
+                let actionButtons = '';
+                
+                if (t.status === 'PENDING') {
+                    statusBadge = '<span class="badge bg-warning text-dark">PENDING</span>';
+                    actionButtons = `
+                        <button class="btn btn-success btn-sm me-1" onclick="approveTicket(${t.id})">Duyệt TT</button>
+                        <button class="btn btn-danger btn-sm" onclick="cancelTicket(${t.id})">Hủy (Quá hạn)</button>
+                    `;
+                    // Note: DTO hiện tại chưa trả về ticketId. Nếu DTO chưa có id, tạm thời backend cần cập nhật id, 
+                    // hoặc tìm theo code. Nhưng API đang map theo id. Ta sẽ để JS fetch list từ API và match.
+                    // Sẽ update lại backend TicketResponseDTO nếu cần, hoặc parse Id. 
+                } else if (t.status === 'PAID') {
+                    statusBadge = '<span class="badge bg-success">PAID</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-secondary">CANCELLED</span>';
+                }
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="fw-bold text-primary">${t.ticketCode}</td>
+                        <td>${t.customerName}</td>
+                        <td>${t.customerPhone}</td>
+                        <td>${t.routeStart} - ${t.routeEnd}</td>
+                        <td>${t.departureTime ? t.departureTime.replace('T', ' ') : ''}</td>
+                        <td class="fw-bold text-danger">${t.seatNumber}</td>
+                        <td>${t.totalPrice.toLocaleString()}đ</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-end" data-code="${t.ticketCode}">${actionButtons}</td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(err => {
+            document.getElementById('ticketTableBody').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Lỗi tải dữ liệu.</td></tr>';
+        });
+    }
+
+    // Do TicketResponseDTO hiện tại chưa trả về ID của vé, 
+    // chúng ta sẽ gọi API tạm theo ID, nên cần lấy Id thực tế bằng cách chỉnh sửa backend hoặc gọi trực tiếp bằng Code (tùy thuộc API).
+    // Ở đây TicketController đang dùng @PathVariable Long id. Ta cần gửi đúng ID.
+    // Tạm thời để lấy ID, ta sẽ cập nhật DTO ở backend.
+    
+    function approveTicket(id) {
+        if(!confirm("Xác nhận đã nhận tiền và chuyển vé sang PAID?")) return;
+        fetch(`/api/tickets/staff/approve/${id}`, {
+            method: 'POST',
+            headers: {'Authorization': `Bearer ${token}`}
+        }).then(res => res.json()).then(data => {
+            alert(data.message || "Thành công");
+            loadTickets();
+        }).catch(err => alert("Lỗi: " + err));
+    }
+
+    function cancelTicket(id) {
+        if(!confirm("Xác nhận HỦY vé này vì quá hạn chưa thanh toán?")) return;
+        fetch(`/api/tickets/staff/cancel/${id}`, {
+            method: 'POST',
+            headers: {'Authorization': `Bearer ${token}`}
+        }).then(res => res.json()).then(data => {
+            alert(data.message || "Đã hủy");
+            loadTickets();
+        }).catch(err => alert("Lỗi: " + err));
+    }
+
+    // Load data on start
+    loadTickets();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

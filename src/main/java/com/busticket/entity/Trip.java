@@ -24,6 +24,9 @@ public class Trip {
     @Column(nullable = false)
     private Double price;
 
+    @Column(name = "driver_name")
+    private String driverName;
+
     public Long getId() {
         return id;
     }
@@ -62,5 +65,13 @@ public class Trip {
 
     public void setPrice(Double price) {
         this.price = price;
+    }
+
+    public String getDriverName() {
+        return driverName;
+    }
+
+    public void setDriverName(String driverName) {
+        this.driverName = driverName;
     }
 }

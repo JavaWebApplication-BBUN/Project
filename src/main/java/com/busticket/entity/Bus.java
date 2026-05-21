@@ -18,7 +18,6 @@ public class Bus {
     @Column(name = "total_seats")
     private Integer totalSeats;
 
-    private String driverName; // Fix cứng theo yêu cầu CORE-03
 
     public Long getId() {
         return id;
@@ -50,13 +49,5 @@ public class Bus {
 
     public void setTotalSeats(Integer totalSeats) {
         this.totalSeats = totalSeats;
-    }
-
-    public String getDriverName() {
-        return driverName;
-    }
-
-    public void setDriverName(String driverName) {
-        this.driverName = driverName;
     }
 }

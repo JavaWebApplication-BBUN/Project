@@ -22,8 +22,9 @@
 <nav class="navbar navbar-dark bg-primary mb-4">
     <div class="container">
         <a class="navbar-brand fw-bold" href="/">🚌 Bus Ticket Pro</a>
-        <div>
-            <a href="/login" class="btn btn-outline-light btn-sm">Đăng nhập</a>
+        <div id="navRight">
+            <a href="/search-ticket" class="btn btn-outline-light btn-sm me-2">Tra Cứu Vé</a>
+            <a href="/login" class="btn btn-outline-light btn-sm" id="loginBtn">Đăng nhập</a>
         </div>
     </div>
 </nav>
@@ -78,10 +79,27 @@
 
                 <div id="seatContainer" class="seat-grid bg-white p-3 border rounded">
                 </div>
+                
+                <div id="bookingForm" class="d-none mt-3 text-start">
+                    <hr>
+                    <div id="authNotice" class="alert alert-warning d-none">Bạn cần đăng nhập để đặt vé.</div>
+                    <div id="customerInfoInputs" class="d-none">
+                        <h6 class="text-primary fw-bold">Thông tin hành khách</h6>
+                        <div class="mb-2">
+                            <label class="form-label">Họ tên</label>
+                            <input type="text" id="custName" class="form-control" readonly>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" id="custPhone" class="form-control" readonly>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer justify-content-between">
                 <div>Đang chọn: <strong id="selectedSeatLabel" class="text-primary">Chưa chọn</strong></div>
                 <button type="button" class="btn btn-success d-none" id="btnContinueBook">Tiếp Tục Đặt Vé</button>
+                <a href="/login" class="btn btn-primary d-none" id="btnLoginToBook">Đăng nhập để Đặt Vé</a>
             </div>
         </div>
     </div>
@@ -90,8 +108,46 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let seatModal = new bootstrap.Modal(document.getElementById('seatModal'));
-    let selectedSeatId = null;
+    let selectedSeats = [];
     let selectedTripId = null;
+    let currentUser = null;
+
+    // Check login status
+    const token = localStorage.getItem('jwt_token');
+    if (token && token !== 'undefined' && token !== 'null') {
+        fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => {
+            if (res.status === 401) {
+                console.error('Token expired or invalid, clearing local storage.');
+                localStorage.removeItem('jwt_token');
+                localStorage.removeItem('user_role');
+                return null;
+            }
+            return res.ok ? res.json() : null;
+        })
+        .then(user => {
+            if (user) {
+                currentUser = user;
+                const navRight = document.getElementById('navRight');
+                navRight.innerHTML = `
+                    <a href="/search-ticket" class="btn btn-outline-light btn-sm me-2">Tra Cứu Vé</a>
+                    <span class="text-white me-3">Xin chào, ${user.fullName}</span>
+                    <button class="btn btn-outline-light btn-sm" onclick="logout()">Đăng xuất</button>
+                `;
+            }
+        });
+    } else {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_role');
+    }
+
+    function logout() {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_role');
+        window.location.reload();
+    }
 
     // 1. Gửi Form tìm chuyến
     document.getElementById('searchForm').addEventListener('submit', function(e) {
@@ -116,9 +172,10 @@
                             <div class="card border-primary h-100">
                                 <div class="card-body">
                                     <h5 class="card-title text-primary fw-bold">${trip.departureTime.replace('T', ' ')}</h5>
-                                    <p class="mb-1"><strong>Xe:</strong> ${trip.busPlate} (${trip.busType})</p>
-                                    <p class="mb-1 text-danger fw-bold">Giá: ${trip.price.toLocaleString()} VNĐ</p>
-                                    <p class="mb-3 text-success">Còn ${trip.availableSeats} ghế trống</p>
+                                     <p class="mb-1"><strong>Xe:</strong> ${trip.busPlate} (${trip.busType})</p>
+                                     <p class="mb-1"><strong>Tài xế:</strong> ${trip.driverName || 'Chưa phân công'}</p>
+                                     <p class="mb-1 text-danger fw-bold">Giá: ${trip.price.toLocaleString()} VNĐ</p>
+                                     <p class="mb-3 text-success">Còn ${trip.availableSeats} ghế trống</p>
                                     <button class="btn btn-outline-primary w-100" onclick="openSeatMap(${trip.tripId})">Chọn Ghế</button>
                                 </div>
                             </div>
@@ -131,9 +188,10 @@
     // 2. Mở Modal Sơ đồ ghế
     function openSeatMap(tripId) {
         selectedTripId = tripId;
-        selectedSeatId = null;
-        document.getElementById('selectedSeatLabel').innerText = 'Chưa chọn';
-        document.getElementById('btnContinueBook').classList.add('d-none');
+        selectedSeats = [];
+        updateSeatSelectionUI();
+        document.getElementById('custName').value = '';
+        document.getElementById('custPhone').value = '';
 
         fetch(`/api/trips/${tripId}/seats`)
             .then(res => res.json())
@@ -162,25 +220,102 @@
 
     // 3. Xử lý click chọn ghế
     function selectSeat(id, seatNumber, element) {
-        // Reset tất cả các ghế đang chọn (Chỉ cho phép đặt 1 ghế/lần để demo)
-        document.querySelectorAll('.seat.SELECTED').forEach(el => {
-            el.classList.remove('SELECTED');
-            el.classList.add('AVAILABLE');
-        });
+        const index = selectedSeats.findIndex(s => s.id === id);
+        if (index > -1) {
+            // Deselect
+            selectedSeats.splice(index, 1);
+            element.classList.remove('SELECTED');
+            element.classList.add('AVAILABLE');
+        } else {
+            // Select
+            selectedSeats.push({id, number: seatNumber});
+            element.classList.remove('AVAILABLE');
+            element.classList.add('SELECTED');
+        }
+        updateSeatSelectionUI();
+    }
 
-        // Đánh dấu ghế vừa click
-        element.classList.remove('AVAILABLE');
-        element.classList.add('SELECTED');
-
-        selectedSeatId = id;
-        document.getElementById('selectedSeatLabel').innerText = seatNumber;
-        document.getElementById('btnContinueBook').classList.remove('d-none');
+    function updateSeatSelectionUI() {
+        if (selectedSeats.length > 0) {
+            const numbers = selectedSeats.map(s => s.number).join(', ');
+            document.getElementById('selectedSeatLabel').innerText = numbers;
+            document.getElementById('bookingForm').classList.remove('d-none');
+            
+            if (currentUser) {
+                document.getElementById('customerInfoInputs').classList.remove('d-none');
+                document.getElementById('custName').value = currentUser.fullName;
+                document.getElementById('custPhone').value = currentUser.phone;
+                document.getElementById('btnContinueBook').classList.remove('d-none');
+                document.getElementById('authNotice').classList.add('d-none');
+                document.getElementById('btnLoginToBook').classList.add('d-none');
+            } else {
+                document.getElementById('customerInfoInputs').classList.add('d-none');
+                document.getElementById('authNotice').classList.remove('d-none');
+                document.getElementById('btnContinueBook').classList.add('d-none');
+                document.getElementById('btnLoginToBook').classList.remove('d-none');
+            }
+        } else {
+            document.getElementById('selectedSeatLabel').innerText = 'Chưa chọn';
+            document.getElementById('btnContinueBook').classList.add('d-none');
+            document.getElementById('btnLoginToBook').classList.add('d-none');
+            document.getElementById('bookingForm').classList.add('d-none');
+        }
     }
 
     // 4. Chuyển hướng sang bước Đặt vé (CORE-06)
     document.getElementById('btnContinueBook').addEventListener('click', function() {
-        alert(`Bạn đang giữ ghế ID: ${selectedSeatId} trên Chuyến ID: ${selectedTripId}. (Sẽ xử lý tiếp ở CORE-06)`);
-        // Logic sẽ chuyển sang trang /book-ticket?tripId=...&seatId=...
+        const name = document.getElementById('custName').value.trim();
+        const phone = document.getElementById('custPhone').value.trim();
+        
+        if(!name || !phone) {
+            alert('Vui lòng nhập đầy đủ Họ tên và Số điện thoại!');
+            return;
+        }
+        
+        const seatIds = selectedSeats.map(s => s.id);
+        const payload = {
+            seatIds: seatIds,
+            customerName: name,
+            customerPhone: phone
+        };
+        
+        const btn = document.getElementById('btnContinueBook');
+        btn.disabled = true;
+        btn.innerText = 'Đang xử lý...';
+        
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        const token = localStorage.getItem('jwt_token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        fetch('/api/tickets/book', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json().then(data => ({status: res.status, body: data})))
+        .then(res => {
+            btn.disabled = false;
+            btn.innerText = 'Tiếp Tục Đặt Vé';
+            
+            if(res.status === 200) {
+                let codes = res.body.tickets.map(t => t.ticketCode).join(', ');
+                alert(`Đặt vé thành công!\nMã vé của bạn là: ${codes}\nVui lòng lưu lại mã vé để tra cứu.`);
+                seatModal.hide();
+                // refresh search list to update available seats
+                document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+            } else {
+                alert(`Lỗi: ${res.body.message}`);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = 'Tiếp Tục Đặt Vé';
+            alert('Có lỗi xảy ra khi đặt vé!');
+        });
     });
 </script>
 </body>

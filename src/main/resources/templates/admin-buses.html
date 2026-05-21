@@ -27,7 +27,7 @@
                 <a href="/admin/buses" class="active"><i class="fa fa-bus me-2"></i> Quản lý xe</a>
                 <a href="#"><i class="fa fa-route me-2"></i> Tuyến đường (Seed)</a>
                 <a href="#"><i class="fa fa-chart-pie me-2"></i> Thống kê</a>
-                <a href="/login" class="text-danger mt-5"><i class="fa fa-sign-out-alt me-2"></i> Đăng xuất</a>
+                <a href="#" onclick="logout()" class="text-danger mt-5"><i class="fa fa-sign-out-alt me-2"></i> Đăng xuất</a>
             </div>
         </div>
 
@@ -51,7 +51,6 @@
                                 <th>Biển Số Xe</th>
                                 <th>Loại Xe</th>
                                 <th>Tổng Số Ghế</th>
-                                <th>Tài Xế</th>
                                 <th class="text-end pe-4">Hành Động</th>
                             </tr>
                             </thead>
@@ -92,10 +91,6 @@
                         <label class="form-label">Tổng số ghế</label>
                         <input type="number" class="form-control" id="totalSeats" min="1" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tên tài xế (Fix cứng)</label>
-                        <input type="text" class="form-control" id="driverName" required>
-                    </div>
                     <div class="modal-footer px-0 pb-0">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                         <button type="submit" class="btn btn-primary" id="btnSave">Lưu lại</button>
@@ -112,8 +107,24 @@
     const API_URL = '/api/admin/buses';
     let busModal;
 
-    // Khi trang tải xong, tự động gọi danh sách xe đổ vào bảng
+    // Helper: lấy JWT headers cho mọi fetch call
+    function authHeaders(extra = {}) {
+        const token = localStorage.getItem('jwt_token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+            ...extra
+        };
+    }
+
+    // Kiểm tra JWT khi tải trang - nếu không có token thì redirect về login
     document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) {
+            window.location.href = '/login';
+            return;
+        }
+
         busModal = new bootstrap.Modal(document.getElementById('busModal'));
         loadBuses();
 
@@ -122,14 +133,25 @@
     });
 
     function loadBuses() {
-        fetch(API_URL)
-            .then(res => res.json())
+        fetch(API_URL, {
+            headers: authHeaders()
+        })
+            .then(res => {
+                if (res.status === 401 || res.status === 403) {
+                    localStorage.removeItem('jwt_token');
+                    localStorage.removeItem('user_role');
+                    window.location.href = '/login';
+                    return [];
+                }
+                return res.json();
+            })
             .then(data => {
+                if (!data) return;
                 const tbody = document.getElementById('busTableBody');
                 tbody.innerHTML = '';
 
                 if (data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-muted">Chưa có xe nào trong hệ thống.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-muted">Chưa có xe nào trong hệ thống.</td></tr>`;
                     return;
                 }
 
@@ -140,7 +162,6 @@
                             <td><span class="badge bg-secondary px-2 py-1 fs-6">${bus.plateNumber}</span></td>
                             <td>${bus.busType}</td>
                             <td>${bus.totalSeats} ghế</td>
-                            <td>${bus.driverName}</td>
                             <td class="text-end pe-4">
                                 <button class="btn btn-sm btn-outline-warning me-1" onclick="openEditModal(${bus.id})">
                                     <i class="fa fa-edit"></i> Sửa
@@ -168,14 +189,15 @@
         document.getElementById('modalTitle').textContent = 'Cập Nhật Thông Tin Xe';
         document.getElementById('modalAlert').classList.add('d-none');
 
-        fetch(`${API_URL}/${id}`)
+        fetch(`${API_URL}/${id}`, {
+            headers: authHeaders()
+        })
             .then(res => res.json())
             .then(bus => {
                 document.getElementById('busId').value = bus.id;
                 document.getElementById('plateNumber').value = bus.plateNumber;
                 document.getElementById('busType').value = bus.busType;
                 document.getElementById('totalSeats').value = bus.totalSeats;
-                document.getElementById('driverName').value = bus.driverName;
                 busModal.show();
             })
             .catch(err => showAlert('danger', 'Không lấy được thông tin chi tiết xe!'));
@@ -188,8 +210,7 @@
         const data = {
             plateNumber: document.getElementById('plateNumber').value,
             busType: document.getElementById('busType').value,
-            totalSeats: parseInt(document.getElementById('totalSeats').value),
-            driverName: document.getElementById('driverName').value
+            totalSeats: parseInt(document.getElementById('totalSeats').value)
         };
 
         // Nếu id có giá trị -> Chạy PUT (Sửa), ngược lại chạy POST (Thêm)
@@ -198,7 +219,7 @@
 
         fetch(url, {
             method: method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify(data)
         })
             .then(async res => {
@@ -219,7 +240,10 @@
 
     function deleteBus(id) {
         if (confirm('Bạn có chắc chắn muốn xóa xe này khỏi danh mục không?')) {
-            fetch(`${API_URL}/${id}`, { method: 'DELETE' })
+            fetch(`${API_URL}/${id}`, {
+                method: 'DELETE',
+                headers: authHeaders()
+            })
                 .then(async res => {
                     if (res.ok) {
                         showAlert('success', 'Đã xóa xe thành công khỏi danh mục!');
@@ -231,6 +255,13 @@
                 })
                 .catch(err => showAlert('danger', 'Lỗi hệ thống, không thể thực hiện lệnh xóa!'));
         }
+    }
+
+    // Đăng xuất: xóa token và redirect
+    function logout() {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_role');
+        window.location.href = '/login';
     }
 
     // Hàm hỗ trợ hiển thị alert thông báo nhanh

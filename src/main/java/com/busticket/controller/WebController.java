@@ -32,4 +32,14 @@ public class WebController {
     public String adminBusesPage() {
         return "admin-buses";
     }
+
+    @GetMapping("/search-ticket")
+    public String searchTicketPage() {
+        return "search-ticket";
+    }
+
+    @GetMapping("/staff/tickets")
+    public String staffTicketsPage() {
+        return "staff-tickets";
+    }
 }

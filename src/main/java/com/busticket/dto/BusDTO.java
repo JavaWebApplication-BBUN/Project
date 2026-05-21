@@ -5,7 +5,6 @@ public class BusDTO {
     private String plateNumber;
     private String busType;
     private Integer totalSeats;
-    private String driverName;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -15,6 +14,4 @@ public class BusDTO {
     public void setBusType(String busType) { this.busType = busType; }
     public Integer getTotalSeats() { return totalSeats; }
     public void setTotalSeats(Integer totalSeats) { this.totalSeats = totalSeats; }
-    public String getDriverName() { return driverName; }
-    public void setDriverName(String driverName) { this.driverName = driverName; }
 }

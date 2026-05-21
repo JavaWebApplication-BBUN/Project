@@ -13,10 +13,6 @@ public class Ticket {
     @Column(name = "ticket_code", nullable = false, unique = true, length = 10)
     private String ticketCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "trip_id", nullable = false)
-    private Trip trip;
-
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seat_id", nullable = false, unique = true)
     private Seat seat;
@@ -50,14 +46,6 @@ public class Ticket {
 
     public void setTicketCode(String ticketCode) {
         this.ticketCode = ticketCode;
-    }
-
-    public Trip getTrip() {
-        return trip;
-    }
-
-    public void setTrip(Trip trip) {
-        this.trip = trip;
     }
 
     public Seat getSeat() {

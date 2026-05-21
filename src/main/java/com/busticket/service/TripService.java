@@ -26,7 +26,7 @@ public class TripService {
             long availableSeats = seatRepository.countByTripIdAndStatus(t.getId(), "AVAILABLE");
             return new TripSummaryDTO(
                     t.getId(), t.getBus().getPlateNumber(), t.getBus().getBusType(),
-                    t.getDepartureTime(), t.getPrice(), availableSeats);
+                    t.getDriverName(), t.getDepartureTime(), t.getPrice(), availableSeats);
         }).collect(Collectors.toList());
     }
 

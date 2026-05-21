@@ -1,14 +1,16 @@
 package com.busticket.controller;
 
+import com.busticket.config.JwtUtil;
 import com.busticket.dto.LoginRequestDTO;
 import com.busticket.dto.RegisterRequestDTO;
 import com.busticket.entity.User;
 import com.busticket.service.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import com.busticket.repository.UserRepository;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +22,12 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequestDTO dto) {
         authService.register(dto);
@@ -27,25 +35,37 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequestDTO dto, HttpServletRequest request) {
+    public ResponseEntity<?> login(@RequestBody LoginRequestDTO dto) {
         User user = authService.login(dto);
 
-        HttpSession session = request.getSession(true);
-        session.setAttribute("currentUser", user);
+        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
 
-        // Đóng gói dữ liệu trả về dạng JSON gồm message và role
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Đăng nhập thành công!");
+        response.put("token", token);
         response.put("role", user.getRole());
+        response.put("message", "Đăng nhập thành công!");
 
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session) {
-        if (session != null) {
-            session.invalidate(); // Xóa sạch session khi đăng xuất
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (username != null && !username.equals("anonymousUser")) {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                Map<String, String> userInfo = new HashMap<>();
+                if (user.getProfile() != null) {
+                    userInfo.put("fullName", user.getProfile().getFullName());
+                    userInfo.put("phone", user.getProfile().getPhoneNumber());
+                } else {
+                    userInfo.put("fullName", user.getUsername());
+                    userInfo.put("phone", "");
+                }
+                userInfo.put("username", user.getUsername());
+                return ResponseEntity.ok(userInfo);
+            }
         }
-        return ResponseEntity.ok("Đã đăng xuất thành công!");
+        return ResponseEntity.status(401).body("Không tìm thấy thông tin người dùng.");
     }
 }

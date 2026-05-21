@@ -18,4 +18,6 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> searchTrips(@Param("fromId") Long fromId,
                            @Param("toId") Long toId,
                            @Param("depDate") LocalDate depDate);
+
+    boolean existsByBusId(Long busId);
 }
